@@ -56,7 +56,7 @@ def write_csv(domains, base, output):
 
 	f = open(output_path, 'wt')
 	
-	f.write('Domain,Extension,Availability%s'%os.linesep)
+	f.write('sep=,'+os.linesep+'Domain,Extension,Availability%s'%os.linesep)
 
 	for d in domains:
 		f.write('%s,%s,%s%s'%(d,d[len(base):],'available' if (domains[d]) else 'not available', os.linesep))
