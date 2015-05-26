@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import tkinter, sys, os, os.path, tempfile, subprocess
+import common, tkinter, sys, os, os.path, tempfile, subprocess
 
 class MainAppProxy:
 	def __init__(self, executableName):
@@ -16,7 +16,7 @@ class MainAppProxy:
 			return
 
 		self.domain = domain
-		self.filename = os.path.join(tempfile._get_default_tempdir(), next(tempfile._get_candidate_names()))
+		self.filename = common.get_full_path(self.executableName + '.log')
 
 		self.writer = open(self.filename, 'wb')
 		self.reader = open(self.filename, 'rb', 1)
@@ -58,7 +58,6 @@ class MainAppProxy:
 			self.reader = None
 
 		if (self.filename != None):
-			os.remove(self.filename)
 			self.filename = None
 
 	def __del__(self):
@@ -119,7 +118,7 @@ class GUIApplication(tkinter.Frame):
 			self.checkbtn.config(state='normal')
 
 	def browser(self):
-		import configparser, sys, subprocess, os.path, os
+		import sys, subprocess, os.path, os
 
 		if sys.platform == 'darwin':
 			def openFolder(path):
@@ -131,14 +130,9 @@ class GUIApplication(tkinter.Frame):
 			def openFolder(path):
 				subprocess.call(['explorer', path])
 
-		config = configparser.ConfigParser()
-		config.read('config.ini')
-		app_config = config['DEFAULT']
+		app_config = common.read_config()
 
-		if (hasattr(sys, 'frozen')):
-			output_path = os.path.join(os.path.dirname(os.path.realpath(sys.executable)), app_config['OutputPath'])
-		else:
-			output_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), app_config['OutputPath'])
+		output_path = common.get_full_path(app_config['OutputPath'])
 		os.makedirs(output_path, 0o755, True)
 		openFolder(output_path)
 

@@ -1,34 +1,41 @@
 #!/usr/bin/python3
 
-def api_check_domains(domains, s_login, s_pw):
-	import urllib.parse, urllib.request, urllib.error, sys, os
+import common
 
-	base_url = 'https://api.rrpproxy.net/api/call.cgi'
+def api_check_domains(domains, s_login, s_pw):
+	import urllib.parse, http.client, sys, os
+
 	full_domains_list = list(domains)
 	ret = {}
 
 	original_full_domains_list = len(full_domains_list)
 
-	while (len(full_domains_list) > 0):
-		domains_list = full_domains_list[:32]
-		full_domains_list = full_domains_list[32:]
+	https_connection = http.client.HTTPSConnection('api.rrpproxy.net')
 
-		post_params = []
-		post_params.append(('s_login', s_login))
-		post_params.append(('s_pw', s_pw))
-		post_params.append(('command', 'checkdomains'))
+	try:
+		while (len(full_domains_list) > 0):
+			domains_list = full_domains_list[:32]
+			full_domains_list = full_domains_list[32:]
 
-		for i in range(len(domains_list)):
-			post_params.append(('domain%i'%i, domains_list[i]))
+			post_params = []
+			post_params.append(('s_login', s_login))
+			post_params.append(('s_pw', s_pw))
+			post_params.append(('command', 'checkdomains'))
 
-		api_request = urllib.request.urlopen(base_url, urllib.parse.urlencode(post_params).encode('utf-8'))
-		api_output = api_request.read().decode('utf-8')
+			for i in range(len(domains_list)):
+				post_params.append(('domain%i'%i, domains_list[i]))
 
-		for i in range(len(domains_list)):
-			ret[domains_list[i]] = True if ('property[domaincheck][%i] = 210'%i in api_output) else False
+			https_connection.request('POST', '/api/call.cgi', urllib.parse.urlencode(post_params).encode('utf-8'))
+			api_request = https_connection.getresponse()
+			api_output = api_request.read().decode('utf-8')
 
-		sys.stdout.write(str(round(100-len(full_domains_list)/original_full_domains_list*100, 2)) + '% completed...' + os.linesep)
-		sys.stdout.flush()
+			for i in range(len(domains_list)):
+				ret[domains_list[i]] = True if ('property[domaincheck][%i] = 210'%i in api_output) else False
+
+			sys.stdout.write(str(round(100-len(full_domains_list)/original_full_domains_list*100, 2)) + '% completed...' + os.linesep)
+			sys.stdout.flush()
+	finally:
+		https_connection.close()
 
 	return(ret)
 
@@ -45,32 +52,26 @@ def read_extensions(file_name):
 	return(ret)
 
 def write_csv(domains, base, output):
-	import sys, os, os.path
+	import os, os.path
 
-	if (hasattr(sys, 'frozen')):
-		output_path = os.path.join(os.path.dirname(os.path.realpath(sys.executable)), output)
-	else:
-		output_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), output)
-
+	output_path = common.get_full_path(output)
 	os.makedirs(os.path.dirname(output_path), 0o755, True)
 
 	f = open(output_path, 'wt')
 	
-	f.write('sep=,'+os.linesep+'Domain,Extension,Availability%s'%os.linesep)
+	f.write('sep=,\nDomain,Extension,Availability\n')
 
 	for d in domains:
-		f.write('%s,%s,%s%s'%(d,d[len(base):],'available' if (domains[d]) else 'not available', os.linesep))
+		f.write('%s,%s,%s\n'%(d,d[len(base):],'available' if (domains[d]) else 'not available'))
 
 	f.close()
 
 def check_domains(domain_base):
-	import configparser, os.path
+	import os.path
 
-	config = configparser.ConfigParser()
-	config.read('config.ini')
-	app_config = config['DEFAULT']
+	app_config = common.read_config()
 
-	extensions = read_extensions(app_config['ExtensionsFile'])
+	extensions = read_extensions(common.get_full_path(app_config['ExtensionsFile']))
 
 	domains_to_check = set()
 
