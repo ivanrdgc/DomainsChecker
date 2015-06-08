@@ -30,7 +30,29 @@ def api_check_domains(domains, s_login, s_pw):
 			api_output = api_request.read().decode('utf-8')
 
 			for i in range(len(domains_list)):
-				ret[domains_list[i]] = True if ('property[domaincheck][%i] = 210'%i in api_output) else False
+				if ('property[domaincheck][%i] = 210'%i in api_output):
+					domainAvailable = True
+				elif ('property[domaincheck][%i] = 211'%i in api_output):
+					domainAvailable = False
+				else:
+					# Try to call API for this single domain
+					post_params = []
+					post_params.append(('s_login', s_login))
+					post_params.append(('s_pw', s_pw))
+					post_params.append(('command', 'checkdomain'))
+					post_params.append(('domain', domains_list[i]))
+					
+					https_connection.request('POST', '/api/call.cgi', urllib.parse.urlencode(post_params).encode('utf-8'))
+					api_request = https_connection.getresponse()
+					new_api_output = api_request.read().decode('utf-8')
+
+					if ('code = 210' in new_api_output):
+						domainAvailable = True
+					elif ('code = 211' in new_api_output):
+						domainAvailable = False
+					else:
+						domainAvailable = 'ERROR ' + new_api_output.split('code = ', 1)[1].split('\n')[0] + ': ' + new_api_output.split('description = ', 1)[1].split('\n')[0]
+				ret[domains_list[i]] = domainAvailable
 
 			sys.stdout.write(str(round(100-len(full_domains_list)/original_full_domains_list*100, 2)) + '% completed...' + os.linesep)
 			sys.stdout.flush()
@@ -62,7 +84,10 @@ def write_csv(domains, base, output):
 	f.write('sep=,\nDomain,Extension,Availability\n')
 
 	for d in domains:
-		f.write('%s,%s,%s\n'%(d,d[len(base):],'available' if (domains[d]) else 'not available'))
+		if (isinstance(domains[d], str)):
+			f.write('%s,%s,%s\n'%(d,d[len(base):],domains[d]))
+		else:
+			f.write('%s,%s,%s\n'%(d,d[len(base):],'available' if (domains[d]) else 'not available'))
 
 	f.close()
 
