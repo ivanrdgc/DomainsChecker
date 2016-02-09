@@ -3,6 +3,7 @@
 def get_full_path(file):
 	import sys, os.path
 
+	# If compiled with py2exe
 	if (hasattr(sys, 'frozen')):
 		return(os.path.join(os.path.dirname(os.path.realpath(sys.executable)), file))
 	else:
